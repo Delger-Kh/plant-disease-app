@@ -1,16 +1,21 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plant_doctor/main.dart';
 import 'package:plant_doctor/models.dart';
+import 'package:plant_doctor/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  testWidgets('Нэвтрээгүй үед нэвтрэх дэлгэц харагдана', (tester) async {
+  testWidgets('Угтах дэлгэц → Эхлэх → нэвтрэх форм', (tester) async {
+    useGoogleFonts = false; // тестийн орчинд фонт татахгүй
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const PlantDoctorApp());
     await tester.pumpAndSettle();
     expect(find.text('Ургамлын эмч'), findsOneWidget);
-    expect(find.text('Нэвтрэх'), findsOneWidget);
-    expect(find.text('Бүртгэлгүй юу? Бүртгүүлэх'), findsOneWidget);
+    await tester.tap(find.text('Эхлэх'));
+    await tester.pumpAndSettle();
+    expect(find.text('Нэвтрэх'), findsWidgets);
+    expect(find.text('Бүртгэлгүй юу?'), findsOneWidget);
+    expect(find.text('Бүртгүүлэх'), findsOneWidget);
   });
 
   test('Оношийн JSON-г зөв уншина', () {

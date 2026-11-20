@@ -3,8 +3,9 @@ import 'package:flutter/material.dart';
 import '../models.dart';
 import '../services/api_client.dart';
 import '../widgets/common.dart';
+import 'scan_screen.dart';
 
-/// US-04/05/06: Оношийн үр дүн, гэмтсэн хэсгийн зураг, эмчилгээний зөвлөмж.
+/// Дэлгэц 05: Үр дүн. US-04/05/06.
 class ResultScreen extends StatefulWidget {
   final Diagnosis diagnosis;
   const ResultScreen({super.key, required this.diagnosis});
@@ -36,7 +37,8 @@ class _ResultScreenState extends State<ResultScreen> {
       final picked = await showDialog<Disease>(
         context: context,
         builder: (c) => SimpleDialog(
-          title: const Text('Зөв оношийг сонгоно уу'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Text('Зөв оношийг сонгоно уу', style: serif(size: 19)),
           children: [
             SizedBox(
               width: 400,
@@ -45,9 +47,12 @@ class _ResultScreenState extends State<ResultScreen> {
                 children: all
                     .map((x) => ListTile(
                           dense: true,
+                          leading: Text(kPlantEmoji[x.plant] ?? '🌿', style: const TextStyle(fontSize: 20)),
                           title: Text(x.nameMn),
-                          subtitle: Text(x.plant),
-                          trailing: x.key == d.disease?.key ? const Icon(Icons.smart_toy, size: 18) : null,
+                          subtitle: Text(x.plant, style: const TextStyle(color: kMuted)),
+                          trailing: x.key == d.disease?.key
+                              ? const Icon(Icons.smart_toy_outlined, size: 18, color: kLeaf)
+                              : null,
                           onTap: () => Navigator.pop(c, x),
                         ))
                     .toList(),
@@ -66,148 +71,229 @@ class _ResultScreenState extends State<ResultScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final disease = d.disease;
-    final isAdmin = ApiClient.instance.user?.isAdmin ?? false;
-    final healthy = disease?.isHealthy ?? false;
-    final mainColor = d.needsReview ? Colors.orange.shade800 : (healthy ? kGreen : Colors.red.shade700);
+  Widget _toggle() {
+    Widget seg(String label, bool value) {
+      final sel = _showOverlay == value;
+      return GestureDetector(
+        onTap: () => setState(() => _showOverlay = value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(color: sel ? kEmerald : Colors.transparent, borderRadius: BorderRadius.circular(20)),
+          child: Text(label,
+              style: TextStyle(
+                  fontSize: 12, color: sel ? Colors.white : kSlate, fontWeight: sel ? FontWeight.w700 : FontWeight.w500)),
+        ),
+      );
+    }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Оношийн үр дүн'),
-        actions: [
-          if (isAdmin)
-            IconButton(tooltip: 'Хянаж батлах', onPressed: _review, icon: const Icon(Icons.fact_check)),
-          IconButton(tooltip: 'Устгах', onPressed: _delete, icon: const Icon(Icons.delete_outline)),
-        ],
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: kGlassDark,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: kBorderStrong),
       ),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
-        // ------------------------------------------------ Зураг (эх / гэмтэл тодруулсан)
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: AspectRatio(
-            aspectRatio: 1,
-            child: NetImage(_showOverlay ? d.overlayUrl : d.imageUrl, fit: BoxFit.cover),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Center(
-          child: SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: true, icon: Icon(Icons.layers), label: Text('Гэмтэл')),
-              ButtonSegment(value: false, icon: Icon(Icons.image), label: Text('Эх зураг')),
-            ],
-            selected: {_showOverlay},
-            onSelectionChanged: (s) => setState(() => _showOverlay = s.first),
-          ),
-        ),
-        if (_showOverlay)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text('Улаан — гэмтсэн хэсэг, ногоон хүрээ — навчны хил',
-                textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
-          ),
-        const SizedBox(height: 16),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [seg('Гэмтэл', true), seg('Эх зураг', false)]),
+    );
+  }
 
-        // ------------------------------------------------ Гол дүгнэлт
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Icon(healthy ? Icons.verified : Icons.coronavirus_outlined, color: mainColor, size: 30),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(d.title,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(color: mainColor)),
-                    if (disease != null)
-                      Text('${disease.plant} · ${disease.nameEn}',
-                          style: TextStyle(color: Colors.grey.shade700)),
-                  ]),
+  Widget _imageHeader(double h) => SizedBox(
+        height: h,
+        width: double.infinity,
+        child: Stack(fit: StackFit.expand, children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            child: NetImage(_showOverlay ? d.overlayUrl : d.imageUrl, key: ValueKey(_showOverlay), fit: BoxFit.cover),
+          ),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: [0.0, 0.35, 1.0],
+                colors: [Color(0x66000000), Color(0x00000000), kBg1],
+              ),
+            ),
+          ),
+          if (_showOverlay && !(d.disease?.isHealthy ?? false))
+            Positioned(
+              left: 16,
+              bottom: 48,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: kCoral.withAlpha(60),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: kCoral, width: 1.5),
                 ),
-              ]),
-              const SizedBox(height: 12),
-              Wrap(spacing: 8, runSpacing: 6, children: [
-                StatusChip(d),
-                Pill('Зэрэг: ${d.severity}', color: severityColor(d.severity)),
-              ]),
-              const SizedBox(height: 14),
-              _Metric(label: 'AI итгэлцэл', value: d.confidence, color: mainColor),
-              const SizedBox(height: 10),
-              _Metric(
-                  label: 'Гэмтсэн талбай', value: d.affectedPct / 100, color: severityColor(d.severity)),
-              const SizedBox(height: 14),
-              Text(d.message),
-              if (d.note.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text('Тэмдэглэл: ${d.note}', style: TextStyle(color: Colors.grey.shade700)),
-              ],
-              const SizedBox(height: 6),
-              Text(formatDate(d.createdAt), style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                child: const Text('● Гэмтсэн хэсэг', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+              ),
+            ),
+        ]),
+      );
+
+  Widget _topBar(bool isAdmin) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+          child: Row(children: [
+            GlassIconButton(icon: Icons.close, size: 36, tooltip: 'Хаах', onPressed: () => Navigator.maybePop(context)),
+            const Spacer(),
+            _toggle(),
+            const Spacer(),
+            if (isAdmin) ...[
+              GlassIconButton(icon: Icons.fact_check_outlined, size: 36, tooltip: 'Хянаж батлах', onPressed: _review),
+              const SizedBox(width: 8),
+            ],
+            GlassIconButton(icon: Icons.delete_outline, size: 36, tooltip: 'Устгах', onPressed: _delete),
+          ]),
+        ),
+      );
+
+  Widget _sheet() {
+    final disease = d.disease;
+    final healthy = disease?.isHealthy ?? false;
+    final others = d.topPredictions.skip(1).toList();
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+      decoration: const BoxDecoration(
+        color: kGlassCard,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+        boxShadow: [BoxShadow(color: Color(0x1FFFFFFF), offset: Offset(0, -1))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Wrap(spacing: 8, runSpacing: 6, children: [
+          StatusChip(d),
+          Pill(d.severity, color: severityColor(d.severity)),
+        ]),
+        const SizedBox(height: 10),
+        Text(d.title, style: serif(size: 23, height: 1.2)),
+        if (disease != null) ...[
+          const SizedBox(height: 3),
+          Text('${kPlantEmoji[disease.plant] ?? '🌿'} ${disease.plant} · ${disease.nameEn}',
+              style: TextStyle(color: kMint.withAlpha(205), fontSize: 12.5, fontStyle: FontStyle.italic)),
+        ],
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(
+              child: MetricTile(
+                  value: '${(d.confidence * 100).toStringAsFixed(0)}%',
+                  label: 'AI итгэлцэл',
+                  color: d.needsReview ? kAmber : kLeaf)),
+          const SizedBox(width: 8),
+          Expanded(
+              child: MetricTile(
+                  value: '${d.affectedPct.toStringAsFixed(d.affectedPct < 10 ? 1 : 0)}%',
+                  label: 'Гэмтсэн талбай',
+                  color: healthy ? kLeaf : kCoral)),
+          const SizedBox(width: 8),
+          Expanded(child: MetricTile(value: '${disease?.treatments.length ?? 0}', label: 'Зөвлөмж', color: kTeal)),
+        ]),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0x4D064E3B),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: kEmerald.withAlpha(76)),
+          ),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('💡', style: TextStyle(fontSize: 15)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(d.message, style: const TextStyle(color: Color(0xFFD1FAE5), fontSize: 12.5, height: 1.45)),
+            ),
+          ]),
+        ),
+        for (final w in d.warnings)
+          Container(
+            margin: const EdgeInsets.only(top: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: kAmber.withAlpha(30),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: kAmber.withAlpha(76)),
+            ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('⚠️', style: TextStyle(fontSize: 14)),
+              const SizedBox(width: 8),
+              Expanded(child: Text(w, style: const TextStyle(color: Color(0xFFFDE68A), fontSize: 12.5))),
             ]),
           ),
+        if (d.note.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Text('Тэмдэглэл: ${d.note}', style: const TextStyle(color: kMuted, fontSize: 12)),
+        ],
+        if (others.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          const CapsLabel('Бусад боломжит онош'),
+          for (final p in others)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Row(children: [
+                  Expanded(
+                    child: Text('${p.nameMn} (${p.plant})',
+                        maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: kSlate, fontSize: 12)),
+                  ),
+                  Text('${(p.confidence * 100).toStringAsFixed(1)}%', style: const TextStyle(color: kSlate, fontSize: 12)),
+                ]),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: p.confidence.clamp(0.0, 1.0),
+                    minHeight: 6,
+                    color: const Color(0xFF64748B),
+                    backgroundColor: const Color(0xFF1E293B),
+                  ),
+                ),
+              ]),
+            ),
+        ],
+        if (disease != null && disease.treatments.isNotEmpty) ...[
+          const SizedBox(height: 14),
+          CapsLabel(healthy ? 'Арчилгааны зөвлөгөө' : 'Эмчилгээний зөвлөмж'),
+          ...disease.treatments.map((t) => TreatmentRow(t)),
+        ],
+        if (disease != null) ...[
+          const SizedBox(height: 14),
+          DiseaseDetails(disease, showTreatments: false),
+        ],
+        const SizedBox(height: 10),
+        PillButton(
+          label: 'Дахин оношлох',
+          icon: Icons.center_focus_strong,
+          expand: true,
+          onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ScanScreen())),
         ),
-        const SizedBox(height: 12),
-
-        // ------------------------------------------------ Анхааруулга
-        for (final w in d.warnings)
-          Card(
-            color: Colors.orange.shade50,
-            child: ListTile(
-              leading: Icon(Icons.warning_amber, color: Colors.orange.shade800),
-              title: Text(w, style: const TextStyle(fontSize: 14)),
-            ),
-          ),
-
-        // ------------------------------------------------ Бусад магадлал
-        if (d.topPredictions.length > 1)
-          SectionCard(
-            title: 'Бусад боломжит онош',
-            icon: Icons.format_list_numbered,
-            child: Column(
-              children: d.topPredictions
-                  .map((p) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(children: [
-                          Expanded(child: Text('${p.nameMn} (${p.plant})')),
-                          Text('${(p.confidence * 100).toStringAsFixed(1)}%',
-                              style: const TextStyle(fontWeight: FontWeight.w600)),
-                        ]),
-                      ))
-                  .toList(),
-            ),
-          ),
-
-        // ------------------------------------------------ Өвчний мэдээлэл, эмчилгээ
-        if (disease != null) DiseaseDetails(disease),
-        const SizedBox(height: 24),
+        const SizedBox(height: 10),
+        Text(formatDate(d.createdAt), textAlign: TextAlign.center, style: const TextStyle(fontSize: 11.5, color: kMuted)),
       ]),
     );
   }
-}
-
-class _Metric extends StatelessWidget {
-  final String label;
-  final double value; // 0..1
-  final Color color;
-  const _Metric({required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
-    final v = value.clamp(0.0, 1.0);
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Expanded(child: Text(label)),
-        Text('${(v * 100).toStringAsFixed(v < 0.1 ? 1 : 0)}%', style: const TextStyle(fontWeight: FontWeight.bold)),
-      ]),
-      const SizedBox(height: 4),
-      ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: LinearProgressIndicator(
-            value: v, minHeight: 8, color: color, backgroundColor: Colors.grey.shade200),
+    final isAdmin = ApiClient.instance.user?.isAdmin ?? false;
+    final width = MediaQuery.of(context).size.width.clamp(0.0, 520.0);
+    final imageH = width * 0.82;
+    return Scaffold(
+      backgroundColor: kBg1,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Stack(children: [
+            SingleChildScrollView(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                _imageHeader(imageH),
+                Transform.translate(offset: const Offset(0, -32), child: _sheet()),
+              ]),
+            ),
+            _topBar(isAdmin),
+          ]),
+        ),
       ),
-    ]);
+    );
   }
 }

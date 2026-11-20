@@ -65,10 +65,10 @@ class DiseaseShort(BaseModel):
     name_mn: str
     name_en: str
     is_healthy: bool
+    pathogen: str = ""
 
 
 class DiseaseOut(DiseaseShort):
-    pathogen: str
     symptoms: str
     description: str
     prevention: str

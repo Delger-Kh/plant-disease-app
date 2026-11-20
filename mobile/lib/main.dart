@@ -15,15 +15,10 @@ class PlantDoctorApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = ColorScheme.fromSeed(seedColor: kGreen);
     return MaterialApp(
       title: 'Ургамлын эмч',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: scheme,
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF6F8F5),
-      ),
+      theme: buildTheme(),
       home: const AuthGate(),
     );
   }
@@ -63,7 +58,7 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     if (!_ready) {
-      return const Scaffold(body: LoadingView(text: 'Ачаалж байна...'));
+      return const AppScaffold(body: LoadingView(text: 'Ачаалж байна...'));
     }
     return api.isLoggedIn ? HomeShell(key: ValueKey(api.user!.id)) : const LoginScreen();
   }

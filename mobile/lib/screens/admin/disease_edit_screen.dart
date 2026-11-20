@@ -107,94 +107,105 @@ class _DiseaseEditScreenState extends State<DiseaseEditScreen> {
           controller: _c[k],
           minLines: lines,
           maxLines: lines == 1 ? 1 : lines + 3,
-          decoration: InputDecoration(labelText: label, helperText: helper, border: const OutlineInputBorder()),
+          decoration: glassInput(label, helper: helper),
           validator: required ? (v) => (v == null || v.trim().isEmpty) ? 'Заавал бөглөнө' : null : null,
         ),
       );
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_isNew ? 'Өвчин нэмэх' : 'Өвчин засах'),
-        actions: [
-          TextButton.icon(
-            onPressed: _saving ? null : _save,
-            icon: const Icon(Icons.save),
-            label: const Text('Хадгалах'),
-          ),
-        ],
-      ),
+    return AppScaffold(
+      title: _isNew ? 'Өвчин нэмэх' : 'Өвчин засах',
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: GlassIconButton(icon: Icons.save_outlined, size: 40, tooltip: 'Хадгалах', onPressed: _saving ? null : _save),
+        ),
+      ],
       body: Form(
         key: _form,
-        child: ListView(padding: const EdgeInsets.all(16), children: [
-          _field('name_mn', 'Нэр (монгол)', required: true),
-          _field('name_en', 'Нэр (англи)'),
-          _field('plant', 'Ургамал', required: true, helper: 'Жишээ нь: Улаан лооль'),
-          _field('key', 'AI ангиллын түлхүүр (key)',
-              required: true, helper: 'AI загварын ангиллын нэртэй яг ижил байх ёстой, жишээ: Tomato___Leaf_Mold'),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Эрүүл ангилал'),
-            subtitle: const Text('Өвчин биш, эрүүл навчны ангилал бол асаана'),
-            value: _healthy,
-            onChanged: (v) => setState(() => _healthy = v),
-          ),
-          const SizedBox(height: 8),
-          _field('pathogen', 'Үүсгэгч'),
-          _field('symptoms', 'Шинж тэмдэг', lines: 3),
-          _field('description', 'Тайлбар', lines: 3),
-          _field('prevention', 'Урьдчилан сэргийлэх', lines: 3),
-          const Divider(height: 32),
-          Row(children: [
-            Expanded(child: Text('Эмчилгээ / зөвлөмж', style: Theme.of(context).textTheme.titleMedium)),
-            TextButton.icon(
-              onPressed: () => setState(() => _treatments.add(_TreatmentDraft(null))),
-              icon: const Icon(Icons.add),
-              label: const Text('Нэмэх'),
-            ),
-          ]),
-          for (var i = 0; i < _treatments.length; i++)
-            Card(
-              key: ObjectKey(_treatments[i]),
-              margin: const EdgeInsets.only(top: 8),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(children: [
-                  Row(children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _treatments[i].method,
-                        decoration: const InputDecoration(labelText: 'Арга'),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Хасах',
-                      icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                      onPressed: () {
-                        final removed = _treatments[i];
-                        setState(() => _treatments.removeAt(i));
-                        WidgetsBinding.instance.addPostFrameCallback((_) => removed.dispose());
-                      },
-                    ),
-                  ]),
-                  TextFormField(
-                    controller: _treatments[i].instructions,
-                    minLines: 2,
-                    maxLines: 5,
-                    decoration: const InputDecoration(labelText: 'Заавар'),
-                  ),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 32), children: [
+              Glass(
+                radius: 26,
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  _field('name_mn', 'Нэр (монгол)', required: true),
+                  _field('name_en', 'Нэр (англи)'),
+                  _field('plant', 'Ургамал', required: true, helper: 'Жишээ нь: Улаан лооль'),
+                  _field('key', 'AI ангиллын түлхүүр (key)',
+                      required: true,
+                      helper: 'AI загварын ангиллын нэртэй яг ижил байх ёстой, жишээ: Tomato___Leaf_Mold'),
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: Text(_treatments[i].isOrganic ? 'Органик арга' : 'Химийн арга'),
-                    value: _treatments[i].isOrganic,
-                    onChanged: (v) => setState(() => _treatments[i].isOrganic = v),
+                    title: const Text('Эрүүл ангилал'),
+                    subtitle: const Text('Өвчин биш, эрүүл навчны ангилал бол асаана', style: TextStyle(color: kMuted)),
+                    value: _healthy,
+                    onChanged: (v) => setState(() => _healthy = v),
                   ),
+                  const SizedBox(height: 8),
                 ]),
               ),
-            ),
-          const SizedBox(height: 32),
-        ]),
+              const SizedBox(height: 12),
+              Glass(
+                radius: 26,
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 6),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  _field('pathogen', 'Үүсгэгч'),
+                  _field('symptoms', 'Шинж тэмдэг', lines: 3),
+                  _field('description', 'Тайлбар', lines: 3),
+                  _field('prevention', 'Урьдчилан сэргийлэх', lines: 3),
+                ]),
+              ),
+              const SizedBox(height: 8),
+              SectionHeader('Эмчилгээ / зөвлөмж',
+                  action: 'Нэмэх', onAction: () => setState(() => _treatments.add(_TreatmentDraft(null)))),
+              for (var i = 0; i < _treatments.length; i++)
+                Glass(
+                  key: ObjectKey(_treatments[i]),
+                  margin: const EdgeInsets.only(bottom: 10),
+                  radius: 22,
+                  padding: const EdgeInsets.all(14),
+                  child: Column(children: [
+                    Row(children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _treatments[i].method,
+                          decoration: glassInput('Арга'),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Хасах',
+                        icon: const Icon(Icons.remove_circle_outline, color: kDanger),
+                        onPressed: () {
+                          final removed = _treatments[i];
+                          setState(() => _treatments.removeAt(i));
+                          WidgetsBinding.instance.addPostFrameCallback((_) => removed.dispose());
+                        },
+                      ),
+                    ]),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: _treatments[i].instructions,
+                      minLines: 2,
+                      maxLines: 5,
+                      decoration: glassInput('Заавар'),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(_treatments[i].isOrganic ? 'Органик арга' : 'Химийн арга'),
+                      value: _treatments[i].isOrganic,
+                      onChanged: (v) => setState(() => _treatments[i].isOrganic = v),
+                    ),
+                  ]),
+                ),
+              const SizedBox(height: 12),
+              PillButton(label: 'Хадгалах', icon: Icons.check, expand: true, loading: _saving, onPressed: _save),
+            ]),
+          ),
+        ),
       ),
     );
   }

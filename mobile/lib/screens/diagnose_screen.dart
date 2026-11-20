@@ -1,180 +1,240 @@
-import 'dart:typed_data';
-
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../models.dart';
 import '../services/api_client.dart';
 import '../widgets/common.dart';
+import 'library_screen.dart';
 import 'result_screen.dart';
+import 'scan_screen.dart';
 
-/// US-03: Навчны зураг авах/сонгох, серверт илгээж оношлуулах.
+/// Дэлгэц 03: Нүүр. Скан руу орох, таньдаг ургамал, сүүлийн оношууд.
 class DiagnoseScreen extends StatefulWidget {
-  final VoidCallback? onDiagnosed;
-  const DiagnoseScreen({super.key, this.onDiagnosed});
+  final VoidCallback? onOpenHistory;
+  final VoidCallback? onOpenLibrary;
+  final Future<void> Function()? onScan;
+  const DiagnoseScreen({super.key, this.onOpenHistory, this.onOpenLibrary, this.onScan});
 
   @override
-  State<DiagnoseScreen> createState() => _DiagnoseScreenState();
+  State<DiagnoseScreen> createState() => DiagnoseScreenState();
 }
 
-class _DiagnoseScreenState extends State<DiagnoseScreen> {
+class DiagnoseScreenState extends State<DiagnoseScreen> {
   final _picker = ImagePicker();
-  final _note = TextEditingController();
-  Uint8List? _bytes;
-  String _filename = 'leaf.jpg';
-  bool _sending = false;
+  List<Diagnosis> _recent = [];
+  bool _loaded = false;
+
+  static const _shortNames = {'Эрдэнэ шиш': 'Эрдэнэ', 'Улаан лооль': 'Лооль'};
 
   @override
-  void dispose() {
-    _note.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    reloadRecent();
   }
 
-  Future<void> _pick(ImageSource source) async {
+  Future<void> reloadRecent() async {
     try {
-      final x = await _picker.pickImage(source: source, maxWidth: 1600, maxHeight: 1600, imageQuality: 90);
-      if (x == null) return;
-      final b = await x.readAsBytes();
-      setState(() {
-        _bytes = b;
-        _filename = x.name.isEmpty ? 'leaf.jpg' : x.name;
-      });
-    } catch (e) {
-      if (mounted) showSnack(context, 'Зураг авч чадсангүй: $e', error: true);
-    }
-  }
-
-  Future<void> _send() async {
-    final bytes = _bytes;
-    if (bytes == null) return;
-    setState(() => _sending = true);
-    try {
-      final d = await ApiClient.instance.diagnose(bytes, _filename, note: _note.text.trim());
-      widget.onDiagnosed?.call();
-      if (!mounted) return;
-      setState(() {
-        _bytes = null;
-        _note.clear();
-      });
-      Navigator.push(context, MaterialPageRoute(builder: (_) => ResultScreen(diagnosis: d)));
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      if (e.statusCode == 422 && e.details.isNotEmpty) {
-        // <<extend>> Нэмэлт зураг хүсэх
-        await showDialog<void>(
-          context: context,
-          builder: (c) => AlertDialog(
-            icon: const Icon(Icons.photo_camera_back, color: Colors.orange, size: 40),
-            title: const Text('Дахин зураг авна уу'),
-            content: Text('${e.message}\n\n• ${e.details.join('\n• ')}'),
-            actions: [FilledButton(onPressed: () => Navigator.pop(c), child: const Text('Ойлголоо'))],
-          ),
-        );
-      } else {
-        showSnack(context, e.toString(), error: true);
+      final h = await ApiClient.instance.history();
+      if (mounted) {
+        setState(() {
+          _recent = h.take(3).toList();
+          _loaded = true;
+        });
       }
-    } finally {
-      if (mounted) setState(() => _sending = false);
+    } catch (_) {
+      if (mounted) setState(() => _loaded = true);
     }
+  }
+
+  Future<void> _scan() async {
+    if (widget.onScan != null) {
+      await widget.onScan!();
+    } else {
+      await Navigator.push(context, MaterialPageRoute(builder: (_) => const ScanScreen()));
+      reloadRecent();
+    }
+  }
+
+  Future<void> _gallery() async {
+    try {
+      final x = await _picker.pickImage(source: ImageSource.gallery, maxWidth: 1600, maxHeight: 1600, imageQuality: 90);
+      if (x == null || !mounted) return;
+      final b = await x.readAsBytes();
+      if (!mounted) return;
+      await Navigator.push(
+          context, MaterialPageRoute(builder: (_) => ScanScreen(initialBytes: b, initialName: x.name)));
+      reloadRecent();
+    } catch (e) {
+      if (mounted) showSnack(context, 'Зураг сонгож чадсангүй: $e', error: true);
+    }
+  }
+
+  Widget _header() {
+    final user = ApiClient.instance.user;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, bottom: 16),
+      child: Row(children: [
+        const LeafLogo(size: 36),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Ургамлын эмч', style: serif(size: 16)),
+            Text('Сайн байна уу, ${user?.name ?? ''} 👋',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: kMint.withAlpha(205), fontSize: 12)),
+          ]),
+        ),
+        GradientAvatar(user?.name ?? '', size: 40),
+      ]),
+    );
+  }
+
+  Widget _search() => Glass(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+        onTap: widget.onOpenLibrary,
+        child: Row(children: [
+          Icon(Icons.search, color: kMint.withAlpha(150), size: 19),
+          const SizedBox(width: 10),
+          const Expanded(child: Text('Өвчин, ургамал хайх...', style: TextStyle(color: kMuted, fontSize: 13))),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: const Color(0x1AFFFFFF), borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.filter_alt_outlined, color: kMint, size: 17),
+          ),
+        ]),
+      );
+
+  Widget _hero() => Glass.card(
+        margin: const EdgeInsets.only(bottom: 20),
+        padding: EdgeInsets.zero,
+        radius: 24,
+        border: kBorderStrong,
+        child: SizedBox(
+          height: 150,
+          child: Stack(clipBehavior: Clip.hardEdge, children: [
+            const Positioned(right: -6, bottom: -4, child: PlantArt(size: 140)),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 18, 130, 16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Ургамлаа эрүүл байлгая', style: serif(size: 17, height: 1.25)),
+                const SizedBox(height: 6),
+                Text('Навчны зураг оруулахад AI өвчнийг таньж, эмчилгээ зөвлөнө.',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: kMintSoft.withAlpha(205), fontSize: 12, height: 1.4)),
+                const Spacer(),
+                Row(children: [
+                  PillButton(label: '📷  Камер', small: true, onPressed: _scan),
+                  const SizedBox(width: 8),
+                  GlassIconButton(icon: Icons.image_outlined, size: 36, tooltip: 'Галерей', onPressed: _gallery),
+                ]),
+              ]),
+            ),
+          ]),
+        ),
+      );
+
+  Widget _crops() {
+    final names = kPlantEmoji.keys.toList();
+    return Column(children: [
+      SectionHeader('Таньдаг ургамал', action: '${names.length} төрөл'),
+      Row(children: [
+        for (var i = 0; i < names.length; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          Expanded(
+            child: Glass(
+              radius: 14,
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
+              onTap: () => Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => LibraryScreen(initialPlant: names[i]))),
+              child: Column(children: [
+                Text(kPlantEmoji[names[i]]!, style: const TextStyle(fontSize: 20)),
+                const SizedBox(height: 4),
+                Text(_shortNames[names[i]] ?? names[i],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10.5, color: Color(0xFFE2E8F0))),
+              ]),
+            ),
+          ),
+        ],
+      ]),
+      const SizedBox(height: 20),
+    ]);
+  }
+
+  Widget _recentRow(Diagnosis d) {
+    final c = (d.disease?.isHealthy ?? false) ? kLeaf : severityColor(d.severity);
+    return Glass(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      onTap: () async {
+        await Navigator.push(context, MaterialPageRoute(builder: (_) => ResultScreen(diagnosis: d)));
+        reloadRecent();
+      },
+      child: Row(children: [
+        ClipRRect(borderRadius: BorderRadius.circular(12), child: NetImage(d.imageUrl, width: 44, height: 44)),
+        const SizedBox(width: 11),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(d.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kText)),
+            const SizedBox(height: 2),
+            Text('${formatDate(d.createdAt)} · ${kPlantEmoji[d.disease?.plant] ?? '🌿'} ${d.disease?.plant ?? ''}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 11, color: kMuted)),
+          ]),
+        ),
+        Pill('${(d.confidence * 100).toStringAsFixed(0)}%', color: c),
+        const SizedBox(width: 6),
+        Container(width: 8, height: 8, decoration: BoxDecoration(color: c, shape: BoxShape.circle)),
+      ]),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = ApiClient.instance.user;
-    return Scaffold(
-      appBar: AppBar(title: const Text('Ургамлын эмч')),
-      body: _sending
-          ? const LoadingView(text: 'AI навчийг шинжилж байна...\nТүр хүлээнэ үү')
-          : ListView(padding: const EdgeInsets.all(16), children: [
-              Text('Сайн байна уу, ${user?.name ?? ''}!', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 4),
-              Text('Өвчилсөн байж болзошгүй навчны зургийг оруулаарай.',
-                  style: TextStyle(color: Colors.grey.shade700)),
-              const SizedBox(height: 16),
-              AspectRatio(
-                aspectRatio: 1,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: kLightGreen,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: kGreen.withAlpha(80), width: 1.5),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: _bytes == null
-                      ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          const Icon(Icons.eco, size: 72, color: kGreen),
-                          const SizedBox(height: 8),
-                          Text('Зураг сонгоогүй байна', style: TextStyle(color: Colors.grey.shade700)),
-                        ])
-                      : Stack(fit: StackFit.expand, children: [
-                          Image.memory(_bytes!, fit: BoxFit.cover),
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: IconButton.filledTonal(
-                              tooltip: 'Арилгах',
-                              onPressed: () => setState(() => _bytes = null),
-                              icon: const Icon(Icons.close),
-                            ),
-                          ),
-                        ]),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _pick(ImageSource.camera),
-                    icon: const Icon(Icons.photo_camera),
-                    label: const Text('Камер'),
-                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => _pick(ImageSource.gallery),
-                    icon: const Icon(Icons.photo_library),
-                    label: Text(kIsWeb ? 'Файл сонгох' : 'Галерей'),
-                    style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(48)),
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _note,
-                maxLength: 300,
-                decoration: const InputDecoration(
-                  labelText: 'Тэмдэглэл (заавал биш)',
-                  hintText: 'Жишээ нь: хүлэмжийн улаан лооль, 2-р эгнээ',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              FilledButton.icon(
-                onPressed: _bytes == null ? null : _send,
-                icon: const Icon(Icons.biotech),
-                label: const Text('Оношлох'),
-                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
-              ),
-              const SizedBox(height: 20),
-              const _TipsCard(),
-            ]),
+    return AppScaffold(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: RefreshIndicator(
+            color: kLeaf,
+            onRefresh: reloadRecent,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 120),
+              children: [
+                _header(),
+                _search(),
+                _hero(),
+                _crops(),
+                SectionHeader('Сүүлийн оношууд', action: 'Бүгд →', onAction: widget.onOpenHistory),
+                if (!_loaded)
+                  const Padding(padding: EdgeInsets.all(24), child: LoadingView())
+                else if (_recent.isEmpty)
+                  Glass(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(children: [
+                      const Text('🌱', style: TextStyle(fontSize: 22)),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text('Одоогоор онош алга. Доорх ногоон "+" товчоор эхний навчаа шалгаарай.',
+                            style: TextStyle(color: kSlate, fontSize: 12.5)),
+                      ),
+                    ]),
+                  )
+                else
+                  ..._recent.map(_recentRow),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
-}
-
-class _TipsCard extends StatelessWidget {
-  const _TipsCard();
-
-  @override
-  Widget build(BuildContext context) => const SectionCard(
-        title: 'Сайн зураг авах зөвлөгөө',
-        icon: Icons.tips_and_updates_outlined,
-        child: Text('• Нэг навчийг ойроос, бүтнээр нь авна\n'
-            '• Өдрийн гэрэлд, сүүдэргүй газар авна\n'
-            '• Камераа тогтвортой барьж, навч руу фокуслана\n'
-            '• Энгийн, нэг өнгийн дэвсгэр (цаас, ширээ) дээр тавибал илүү нарийвчлалтай\n'
-            '• Одоогоор алим, эрдэнэ шиш, усан үзэм, төмс, улаан лоолийг таньдаг'),
-      );
 }

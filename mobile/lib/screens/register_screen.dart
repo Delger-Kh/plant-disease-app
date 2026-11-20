@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/api_client.dart';
 import '../widgets/common.dart';
 
-/// US-01: Бүртгүүлэх дэлгэц.
+/// US-01: Бүртгүүлэх дэлгэц (Нэвтрэх дэлгэцийн загвартай).
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -41,64 +41,83 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  Widget _label(String t) => Padding(
+        padding: const EdgeInsets.only(left: 2, bottom: 6, top: 12),
+        child: Text(t, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: kMintSoft.withAlpha(205))),
+      );
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Бүртгүүлэх')),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Form(
-                key: _form,
-                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  TextFormField(
-                    controller: _name,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(labelText: 'Нэр', prefixIcon: Icon(Icons.person_outline)),
-                    validator: (v) => (v == null || v.trim().length < 2) ? 'Нэрээ оруулна уу' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _email,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(labelText: 'И-мэйл', prefixIcon: Icon(Icons.email_outlined)),
-                    validator: (v) {
-                      final s = v?.trim() ?? '';
-                      final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(s);
-                      return ok ? null : 'И-мэйлээ зөв оруулна уу';
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _password,
-                    obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Нууц үг', prefixIcon: Icon(Icons.lock_outline)),
-                    validator: (v) => (v == null || v.length < 6) ? 'Хамгийн багадаа 6 тэмдэгт' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _password2,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                        labelText: 'Нууц үг давтах', prefixIcon: Icon(Icons.lock_outline)),
-                    validator: (v) => v != _password.text ? 'Нууц үг таарахгүй байна' : null,
-                    onFieldSubmitted: (_) => _submit(),
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: _loading ? null : _submit,
-                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(50)),
-                    child: _loading
-                        ? const SizedBox(
-                            height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
-                        : const Text('Бүртгүүлэх'),
-                  ),
-                ]),
+    return AppScaffold(
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(22, 8, 22, 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(children: [
+              Row(children: [
+                GlassIconButton(icon: Icons.chevron_left, size: 38, onPressed: () => Navigator.maybePop(context)),
+              ]),
+              const SizedBox(height: 18),
+              Glass.card(
+                radius: 26,
+                padding: const EdgeInsets.all(24),
+                child: Form(
+                  key: _form,
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Text('Бүртгүүлэх', style: serif(size: 26)),
+                    const SizedBox(height: 4),
+                    Text('Ургамлынхаа эрүүл мэндийг хамтдаа хянацгаая.',
+                        style: TextStyle(fontSize: 12.5, color: kMintSoft.withAlpha(180))),
+                    const SizedBox(height: 8),
+                    _label('Нэр'),
+                    TextFormField(
+                      controller: _name,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: glassInput('', hint: 'Таны нэр'),
+                      validator: (v) => (v == null || v.trim().length < 2) ? 'Нэрээ оруулна уу' : null,
+                    ),
+                    _label('И-мэйл'),
+                    TextFormField(
+                      controller: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: glassInput('', hint: 'name@domain.mn'),
+                      validator: (v) {
+                        final s = v?.trim() ?? '';
+                        final ok = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(s);
+                        return ok ? null : 'И-мэйлээ зөв оруулна уу';
+                      },
+                    ),
+                    _label('Нууц үг'),
+                    TextFormField(
+                      controller: _password,
+                      obscureText: true,
+                      decoration: glassInput('', hint: 'Хамгийн багадаа 6 тэмдэгт'),
+                      validator: (v) => (v == null || v.length < 6) ? 'Хамгийн багадаа 6 тэмдэгт' : null,
+                    ),
+                    _label('Нууц үг давтах'),
+                    TextFormField(
+                      controller: _password2,
+                      obscureText: true,
+                      decoration: glassInput('', hint: '••••••••'),
+                      validator: (v) => v != _password.text ? 'Нууц үг таарахгүй байна' : null,
+                      onFieldSubmitted: (_) => _submit(),
+                    ),
+                    const SizedBox(height: 24),
+                    PillButton(
+                        label: 'Бүртгүүлэх', trailingText: '→', expand: true, loading: _loading, onPressed: _submit),
+                  ]),
+                ),
               ),
-            ),
+              const SizedBox(height: 16),
+              Wrap(alignment: WrapAlignment.center, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                const Text('Бүртгэлтэй юу?', style: TextStyle(color: kMuted, fontSize: 13)),
+                TextButton(
+                  onPressed: () => Navigator.maybePop(context),
+                  child: const Text('Нэвтрэх', style: TextStyle(color: kLeaf, fontWeight: FontWeight.w700)),
+                ),
+              ]),
+            ]),
           ),
         ),
       ),
