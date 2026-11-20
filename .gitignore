@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Backend ажиллах үед үүсэх файлууд
+backend/plant.db
+backend/media/
+backend/.secret_key
+
+# ML сургалтын өгөгдөл (том хэмжээтэй — prepare_data.py-ээр дахин үүсгэнэ)
+ml/data/
+*.npz
+
+# Flutter / Dart
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/build/
+mobile/.packages
+mobile/pubspec.lock
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android/app/debug/
+mobile/android/app/profile/
+mobile/android/app/release/
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/ios/Flutter/Generated.xcconfig
+mobile/ios/Flutter/flutter_export_environment.sh
+*.iml
+.idea/
+.vscode/
+.DS_Store
