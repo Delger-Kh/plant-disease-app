@@ -188,14 +188,3 @@ plant-disease-app/
 └── docs/                        # графикууд
 ```
 
-## 6. GitHub-д оруулах
-
-```bash
-cd plant-disease-app
-git init
-git add .
-git commit -m "Ургамлын эмч: Flutter апп, FastAPI backend, CNN загвар"
-git branch -M main
-git remote add origin https://github.com/<хэрэглэгчийн-нэр>/plant-disease-app.git
-git push -u origin main
-```
